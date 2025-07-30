@@ -1,0 +1,11 @@
+Group 1;Group 2;t Statistic;p-value;Significance
+-ATC;0 mismatches;-141,191724;0,000000e+00;*** (p < 0.001, highly significant)
+-ATC;2 mismatches;-56,364551;0,000000e+00;*** (p < 0.001, highly significant)
+-ATC;9 mismatches;6,264236;3,782931e-10;*** (p < 0.001, highly significant)
+-ATC;scrambled guide;29,115971;1,194859e-185;*** (p < 0.001, highly significant)
+0 mismatches;2 mismatches;82,229665;0,000000e+00;*** (p < 0.001, highly significant)
+0 mismatches;9 mismatches;121,602445;0,000000e+00;*** (p < 0.001, highly significant)
+0 mismatches;scrambled guide;159,086337;0,000000e+00;*** (p < 0.001, highly significant)
+2 mismatches;9 mismatches;50,795984;0,000000e+00;*** (p < 0.001, highly significant)
+2 mismatches;scrambled guide;79,523318;0,000000e+00;*** (p < 0.001, highly significant)
+9 mismatches;scrambled guide;16,719115;1,441329e-62;*** (p < 0.001, highly significant)
