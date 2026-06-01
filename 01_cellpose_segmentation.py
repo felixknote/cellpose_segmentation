@@ -16,8 +16,9 @@ from scipy.stats import skew as _skew, kurtosis as _kurtosis
 from skimage.filters import sobel_h, sobel_v, laplace
 from tqdm import tqdm
 
-from cellpose import models
 from cp_measure.bulk import get_core_measurements
+# cellpose is imported lazily inside _get_model() so ProcessPool workers
+# (which only need cp_measure) don't re-load the full Cellpose-SAM stack.
 
 warnings.filterwarnings('ignore')
 
@@ -26,14 +27,14 @@ input_folders = [
     r"D:\2025_12_19 CRISPRi Reference Plate Imaging\P1",
     r"D:\2025_12_19 CRISPRi Reference Plate Imaging\P2",
     r"D:\2025_12_19 CRISPRi Reference Plate Imaging\P3",
-    r"D:\2026_03_14_WT_Comparison\P2_2\TIFocus",
-    r"D:\2026_03_14_WT_Comparison\P3_1\TIFocus",
-    r"D:\2026_03_14_WT_Comparison\P3_2\TIFocus",
+    r"D:\2025_12_19 CRISPRi Reference Plate Imaging\P4",
+    r"D:\2025_12_19 CRISPRi Reference Plate Imaging\P5",
+    r"D:\2025_12_19 CRISPRi Reference Plate Imaging\P6",
 ]
 
 # ── Environment & threading ───────────────────────────────────────────────────
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
-os.environ["OMP_NUM_THREADS"]         = "4"   # leave headroom for measurement workers
+os.environ["OMP_NUM_THREADS"]         = "4"   
 os.environ["MKL_NUM_THREADS"]         = "4"
 
 # ── Physical calibration ──────────────────────────────────────────────────────
@@ -94,6 +95,7 @@ _MODEL = None
 def _get_model():
     global _MODEL
     if _MODEL is None:
+        from cellpose import models  # lazy import — main process only
         _MODEL = models.CellposeModel(gpu=torch.cuda.is_available(), pretrained_model='cpsam')
     return _MODEL
 
