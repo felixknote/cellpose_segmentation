@@ -47,7 +47,13 @@ TILE_OVERLAP = 0.1
 BSIZE        = 256
 
 # ── Measurement worker pool size ──────────────────────────────────────────────
-MEAS_WORKERS = 8
+# Each worker holds a copy of the (often 2720x2720) DIC image plus several
+# float32/int32 intermediates from cp_measure (texture, granularity,
+# radial_zernikes can each allocate ~50–100 MiB). 4 workers comfortably fits
+# Windows commit-limit on this box; raise only if you confirm headroom.
+MEAS_WORKERS    = 4
+MEAS_INFLIGHT   = MEAS_WORKERS * 2     # max queued + running measurements
+MEAS_MAXTASKS   = 50                   # recycle worker process after N images
 
 # ── cp_measure prefixes (sizeshape/feret/texture are unprefixed in raw output) ──
 _PREFIXES = {
@@ -390,7 +396,7 @@ def _process_folder(input_folder, meas_pool, io_pool, prefetch_pool):
                 pbar.update(1)
 
             # Backpressure: cap in-flight measurements.
-            while len(pending) >= MEAS_WORKERS * 2:
+            while len(pending) >= MEAS_INFLIGHT:
                 fname, fut, masks_done = pending.popleft()
                 _finalize_one(fname, fut, masks_done, io_pool, output_folder,
                               aggregated_frames, io_futures)
@@ -432,7 +438,8 @@ def main():
 
     _ = _get_model()  # warm-load on main process
 
-    with ProcessPoolExecutor(max_workers=MEAS_WORKERS) as meas_pool, \
+    with ProcessPoolExecutor(max_workers=MEAS_WORKERS,
+                              max_tasks_per_child=MEAS_MAXTASKS) as meas_pool, \
          ThreadPoolExecutor(max_workers=4)        as io_pool,        \
          ThreadPoolExecutor(max_workers=2)        as prefetch_pool:
         for input_folder in input_folders:
