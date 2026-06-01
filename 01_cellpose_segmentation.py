@@ -226,8 +226,12 @@ def _measure(masks_full, dic_img):
     if not keep_labels:
         return pd.DataFrame()
 
-    mask_kept = np.where(np.isin(masks_full, keep_labels), masks_full, 0).astype(np.int32)
-    labels = np.array(sorted(set(np.unique(mask_kept)) - {0}), dtype=np.int32)
+    # Remap kept labels to contiguous 1..N — cp_measure expects no gaps in the label set.
+    remap = np.zeros(int(masks_full.max()) + 1, dtype=np.int32)
+    for new_lab, old_lab in enumerate(keep_labels, start=1):
+        remap[old_lab] = new_lab
+    mask_kept = remap[masks_full]
+    labels = np.arange(1, len(keep_labels) + 1, dtype=np.int32)
 
     dic = dic_img.astype(np.float32, copy=False)
     dic_norm = _normalize01(dic)
