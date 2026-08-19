@@ -1,96 +1,199 @@
-# 🧬 Cellpose Segmentation Pipeline 🧪
+# Cellpose Segmentation & Morphology Pipeline
 
-Welcome to the **Cellpose Segmentation** repository! This project provides a powerful and flexible Python-based pipeline for automated cell segmentation using the state-of-the-art Cellpose and Cellpose-SAM models. It is designed to work with microscopy TIFF image stacks, particularly for experiments involving DIC and fluorescence channels, and is optimized for GPU acceleration.  
+A GPU-accelerated pipeline for segmenting bacterial cells in DIC microscopy
+stacks and analysing their morphology across CRISPRi screening plates.
 
----
-
-## 🔬 Overview
-
-This pipeline segments cells or bacteria in microscopy image stacks, quantifies shape and intensity features, and outputs detailed segmentation masks alongside comprehensive Excel reports. The main segmentation engine leverages the `cellpose` Python package (v4.0.6) with support for the latest SAM (Segment Anything Model) integration, allowing precise and scalable cell detection.
-
----
-
-## 🧩 Detailed Description of the Python Scripts
-
-### 1. **Main Segmentation Script**
-
-This script orchestrates the full workflow from image loading, segmentation, feature extraction, to results saving:
-
-- **GPU Check & Setup:**  
-  It begins by detecting CUDA and GPU availability for hardware-accelerated segmentation on compatible NVIDIA GPUs (e.g., RTX 4500 Ada Generation). This significantly speeds up model inference.
-
-- **Input/Output Folder Setup:**  
-  You specify your input folder containing `.tif` or `.tiff` microscopy stacks and an output folder for saving segmentation masks and Excel result files. The output folder is created if it doesn't exist.
-
-- **Model Loading:**  
-  The script loads the Cellpose-SAM model using `models.CellposeModel` with the pretrained `cpsam` weights. This model is designed for high accuracy on diverse cell types and image modalities.
-
-- **Segmentation Parameters:**  
-  - `diameter`: Cell diameter for segmentation; if unknown, set to `None` for automatic detection.  
-  - `batch_size`: Number of tiles processed simultaneously (default 4). Adjust based on your GPU VRAM.  
-  - `tile_overlap`: Overlap fraction between tiles to avoid edge artifacts.  
-  - `bsize`: Tile size for image splitting during segmentation (default 256).
-
-- **Image Loading and Preprocessing:**  
-  Each TIFF stack is expected to have two channels:  
-  - Channel 0: Differential Interference Contrast (DIC) image used for segmentation.  
-  - Channel 1: Fluorescence image used for measuring intensity within segmented cells.  
-
-  Both images are normalized independently **except the fluorescence channel if you disable normalization**.
-
-- **Padding:**  
-  Images are padded via reflection to multiples of `bsize` for smooth tiling during segmentation and later cropped back to original size.
-
-- **Cellpose-SAM Segmentation:**  
-  The prepared DIC channel image is fed into the Cellpose-SAM model's `.eval()` function to produce segmentation masks. This returns:  
-  - `masks`: Labeled segmentation mask array.  
-  - `flows` and `styles`: Additional model outputs (not used downstream here).
-
-- **Mask Cropping & Labeling:**  
-  The padded masks are cropped back to original image size and labeled to identify individual segmented objects.
-
-- **Feature Extraction:**  
-  Using `skimage.measure.regionprops`, the script calculates per-object features, including:  
-  - Area  
-  - Length (major axis length)  
-  - Width (minor axis length)  
-  - Roundness (shape circularity)  
-  - Aspect Ratio  
-  - Mean fluorescence intensity inside the mask  
-  - Centroid coordinates (X, Y)  
-
-  Additionally, background fluorescence mean and standard deviation are computed from the non-cell regions.
-
-- **GPU Memory Management & OOM Handling:**  
-  The script monitors free GPU memory. If out-of-memory (OOM) errors occur, it automatically reduces the batch size and tile size and retries segmentation up to 3 times per stack.
-
-- **Batch Processing:**  
-  The script loops through all TIFF files in the input folder, processes them one by one with a progress bar, saves the segmentation masks (as 16-bit TIFFs), and exports per-object features to Excel files.
-
-- **Error Handling:**  
-  Any exception during processing a stack is caught and reported without stopping the entire batch.
+Segmentation runs on [CellposeSAM](https://github.com/MouseLand/cellpose)
+(`cellpose==4.0.6`, `cpsam` weights). Downstream steps take the resulting
+per-cell measurement tables and produce statistics, PCA/UMAP embeddings,
+OD600 correlations, and a deep-learning knockdown classifier.
 
 ---
 
-## 🚀 How to Use
+## Pipeline overview
 
-1. **Prepare your environment:**
+Each script is a stage. They communicate through **parquet files on disk**, not
+through imports, so stages can be re-run independently.
 
-   - Python 3.8+  
-   - Install required packages (recommended in a virtual environment):  
-     ```bash
-     pip install cellpose==4.0.6 tifffile pandas scikit-image tqdm torch
-     ```
+| Step | Script | Input | Output |
+|------|--------|-------|--------|
+| 01 | `01_cellpose_segmentation.py` | Folders of 2-channel `.tif`/`.tiff` stacks | Label masks + per-cell parquet |
+| 02 | `02_morphological_analysis.py` | One plate's parquet + plate map | Histograms, per-well stats, Excel counts |
+| 02b | `02_morphological_analysis_multi_plate.py` | Several plates (`P1`…`P6`) | Cross-plate comparison |
+| 02c | `02_morphological_analysis_CRISPRi_control_plate.py` | Control-plate replicates | 2×2×2 factorial analysis |
+| 03 | `03_morphological_map.py` | Plate parquet + plate map | PCA + UMAP maps (JPG + interactive HTML) |
+| 04 | `04_od600_morphology_correlation.py` | Plate parquets + OD600 tables | OD600 × morphology correlations |
+| 05 | `05_deep_learning_classification.py` | Multi-plate parquets | ResidualMLP gene-knockdown classifier |
 
-2. **Organize your data:**
+`multiplate/` holds two exploratory notebooks (histograms, UMAP) kept for
+reference; the maintained equivalents are steps 02b and 03.
 
-   - Input folder should contain TIFF stacks with exactly two channels:  
-     - Channel 0: DIC or phase contrast image for segmentation  
-     - Channel 1: Fluorescence image for intensity measurement  
+---
 
-3. **Adjust parameters:**
+## Installation
 
-   - Set `input_folder` and `output_folder` paths in the script.  
-   - Adjust `diameter` if you know the approximate cell size (pixels).  
-   - Modify `batch_size` and `bsize` depending on GPU VRAM and performance.  
-   - Optionally enable/disable fluorescence normalization by editing the code.
+The pipeline is developed against a dedicated conda environment
+(`cellposeSAM`, Python 3.8):
+
+```bash
+conda create -n cellposeSAM python=3.8
+conda activate cellposeSAM
+pip install -r requirements.txt
+```
+
+CellposeSAM is only practical on a CUDA GPU. Install the matching PyTorch build
+**before** the rest, otherwise you get the CPU wheel:
+
+```bash
+pip install torch==2.4.0 --index-url https://download.pytorch.org/whl/cu121
+```
+
+Verify the GPU is visible:
+
+```bash
+python -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_device_name(0))"
+```
+
+---
+
+## Step 01 — Segmentation
+
+Edit the `input_folders` list at the top of `01_cellpose_segmentation.py`, then:
+
+```bash
+python 01_cellpose_segmentation.py
+```
+
+**Expected input.** Each `.tif`/`.tiff` is a stack where
+
+- **channel 0** = DIC — used for segmentation and all intensity features
+- **channel 1** = fluorescence — optional; if absent, intensity/background
+  columns are simply omitted
+
+**Key parameters** (module-level constants):
+
+| Constant | Default | Meaning |
+|----------|---------|---------|
+| `PIXEL_SIZE_UM` | `0.108` | µm per pixel — sets the physical calibration |
+| `DIAMETER` | `None` | Cell diameter in px; `None` = auto-estimate |
+| `BATCH_SIZE_INIT` | `32` | Tiles pushed through CPSAM at once |
+| `BSIZE_INIT` | `256` | Tile edge length (px) |
+| `TILE_OVERLAP` | `0.1` | Tile overlap fraction |
+| `OOM_RETRIES` | `4` | OOM retry attempts |
+| `RESUME` | `True` | Skip images whose mask already exists |
+
+**Outputs**, written to `<input_folder>/CellposeSAM Segmentation results/`:
+
+```
+masks/       one uint16 (or uint32) label TIFF per input image
+shards/      one parquet per input image
+cell_measurements.parquet    combined table, rebuilt from shards
+```
+
+**Measured features** (via `skimage.measure.regionprops_table`), one row per
+kept cell. Cells touching the image border are excluded, since their morphology
+is truncated. Dimensionless ratios are computed *before* calibration; lengths
+and areas are then converted to µm and µm².
+
+`area` (µm²), `perimeter` (µm), `major_axis_length` (µm),
+`minor_axis_length` (µm), `roundness` (4π·area / perimeter²),
+`aspect_ratio` (major/minor), plus `mean_intensity`, `background_mean` and
+`background_std` when a fluorescence channel is present.
+
+### Robustness
+
+The script is built to survive long unattended batches:
+
+- **Resumable** — a per-image mask TIFF doubles as a completion marker, so a
+  crash (CUDA OOM, host OOM, power loss, Ctrl-C) costs only the in-flight image.
+- **Atomic combine** — the per-folder parquet is rebuilt from shards via
+  temp-file-then-`os.replace`, so it is never left half-written.
+- **OOM backoff** — on CUDA OOM the batch size and tile size are halved and the
+  image is retried, up to `OOM_RETRIES`.
+- **Per-image isolation** — one bad stack is reported and skipped rather than
+  killing the batch.
+
+---
+
+## Steps 02–05 — Analysis
+
+All scripts have a `__main__` guard and run standalone. Only step 02 can take
+its input path on the command line; every other script is configured by editing
+the constants at the top of the file.
+
+| Script | Available flags |
+|--------|-----------------|
+| `02_morphological_analysis.py` | `--data-folder`, `--dpi` |
+| `02_morphological_analysis_multi_plate.py` | `--dpi` |
+| `02_morphological_analysis_CRISPRi_control_plate.py` | `--dpi`, `--skip-preflight` |
+| `01`, `03`, `04`, `05` | none — edit the constants |
+
+```bash
+python 02_morphological_analysis.py --data-folder "D:\...\P1\CellposeSAM Segmentation results"
+python 02_morphological_analysis_multi_plate.py --dpi 300
+python 03_morphological_map.py
+```
+
+Multi-plate steps expect one plate per subfolder plus a plate map per plate,
+rooted at the `ROOT_DATA_DIR` constant in the script:
+
+```
+ROOT_DATA_DIR/
+  P1/<SEGMENTATION_SUBPATH>/<parquet>
+  P2/<SEGMENTATION_SUBPATH>/<parquet>
+  ...
+  P_1_plate_map.csv
+  P_2_plate_map.csv
+```
+
+Results are written to timestamped `Analysis_<timestamp>/` folders next to the
+data. Interactive HTML plots in step 03 need `bokeh`; without it the script
+prints a warning and writes only the static JPGs.
+
+---
+
+## ⚠ Known issues
+
+**1. Parquet filename mismatch between step 01 and steps 02–05.**
+Step 01 currently writes `cell_measurements.parquet`, while the downstream
+scripts look for `AGGREGATED_FILE = "micromorph_cell_measurements.parquet"`.
+Until this is reconciled, either rename the file after segmentation or set
+`AGGREGATED_FILE` in the downstream script to match.
+
+**2. `PARQUET_SCHEMA_HANDOFF.md` describes a newer schema than step 01 emits.**
+That document specifies a `cp_measure`-based table with ~296 columns
+(`AreaShape_*`, `Texture_*`, `Zernike_*`, timestamped filenames). The
+`01_cellpose_segmentation.py` in this repo still produces the smaller
+`regionprops_table` schema documented above. Treat the handoff document as the
+*target* schema for a migration that is not yet complete in this file, and this
+README as the description of current behaviour.
+
+**3. Data paths are hardcoded.** The `D:\...` paths at the top of each script
+point at specific acquisition folders and must be edited for any other dataset.
+
+---
+
+## Repository layout
+
+```
+01_cellpose_segmentation.py                        segmentation + measurement
+02_morphological_analysis.py                       single-plate morphology
+02_morphological_analysis_multi_plate.py           multi-plate morphology
+02_morphological_analysis_CRISPRi_control_plate.py control-plate factorial
+03_morphological_map.py                            PCA + UMAP
+04_od600_morphology_correlation.py                 OD600 × morphology
+05_deep_learning_classification.py                 ResidualMLP classifier
+multiplate/                                        exploratory notebooks
+PARQUET_SCHEMA_HANDOFF.md                          target parquet schema
+requirements.txt
+```
+
+Segmentation outputs (`images/`, `Analysis_*/`, `*.parquet`, mask TIFFs) and
+`pyvis`'s vendored `lib/` assets are regenerated from raw data and are excluded
+via `.gitignore`.
+
+---
+
+## License
+
+MIT — see [LICENSE](LICENSE).
