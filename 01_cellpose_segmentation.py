@@ -40,18 +40,12 @@ warnings.filterwarnings("ignore")
 
 # ── Folders to process ────────────────────────────────────────────────────────
 input_folders = [
-    r"D:\2025_12_19 CRISPRi Reference Plate Imaging\P1",
-    r"D:\2025_12_19 CRISPRi Reference Plate Imaging\P2",
-    r"D:\2025_12_19 CRISPRi Reference Plate Imaging\P3",
-    r"D:\2025_12_19 CRISPRi Reference Plate Imaging\P4",
-    r"D:\2025_12_19 CRISPRi Reference Plate Imaging\P5",
-    r"D:\2025_12_19 CRISPRi Reference Plate Imaging\P6",
-    r"D:\2026_04_28_Antibiotics Reference Set\P1",
-    r"D:\2026_04_28_Antibiotics Reference Set\P2",
-    r"D:\2026_04_28_Antibiotics Reference Set\P3",
-    r"D:\2026_04_28_Antibiotics Reference Set\P4",
-    r"D:\2026_04_28_Antibiotics Reference Set\P5",
-    r"D:\2026_04_28_Antibiotics Reference Set\P6",
+    r"D:\2026_06_17_CRISPRi Control Plate\P1",
+    r"D:\2026_06_17_CRISPRi Control Plate\P2",
+    r"D:\2026_06_17_CRISPRi Control Plate\P3",
+    r"D:\2026_06_17_CRISPRi Control Plate\P4",
+    r"D:\2026_06_17_CRISPRi Control Plate\P5",
+    r"D:\2026_06_17_CRISPRi Control Plate\P6"
 ]
 
 
@@ -108,18 +102,12 @@ _RP_BASE = ["label", "area", "perimeter", "major_axis_length", "minor_axis_lengt
             "solidity", "eccentricity", "extent", "euler_number", "centroid"]
 
 _RP_RENAME = {
-    "label":             "label",
     "area":              "area_um2",
     "major_axis_length": "length_um",
     "minor_axis_length": "width_um",
     "perimeter":         "perimeter_um",
-    "solidity":          "solidity",
-    "eccentricity":      "eccentricity",
-    "extent":            "extent",
-    "euler_number":      "euler_number",
     "centroid-0":        "centroid_y",
     "centroid-1":        "centroid_x",
-    "mean_intensity":    "mean_intensity",
 }
 
 
@@ -146,8 +134,7 @@ def process_stack(stack_path):
     masks_padded = None
     for attempt in range(OOM_RETRIES):
         try:
-            _buf = io.StringIO()
-            with contextlib.redirect_stdout(_buf), contextlib.redirect_stderr(_buf):
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
                 masks_padded, flows, styles = model.eval(
                     dic_img,
                     diameter=DIAMETER,
@@ -181,9 +168,8 @@ def process_stack(stack_path):
         masks[0, :], masks[-1, :], masks[:, 0], masks[:, -1]
     ]))) - {0}
 
-    intensity_img = fluo_img if fluo_available else None
     props = _RP_BASE + (["mean_intensity"] if fluo_available else [])
-    tbl = regionprops_table(masks, intensity_image=intensity_img, properties=props)
+    tbl = regionprops_table(masks, intensity_image=fluo_img if fluo_available else None, properties=props)
     df = pd.DataFrame(tbl)
 
     if edge_labels:
@@ -308,9 +294,8 @@ def main():
             print(f"\n[INTERRUPTED] at {input_folder} — rerun to resume.", flush=True)
             raise
         except Exception as e:
-            import traceback
             print(f"\n[ERROR] {input_folder}: {e}", flush=True)
-            traceback.print_exc()
+            import traceback; traceback.print_exc()
         finally:
             gc.collect()
             torch.cuda.empty_cache()
