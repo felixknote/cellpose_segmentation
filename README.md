@@ -152,24 +152,36 @@ prints a warning and writes only the static JPGs.
 
 ---
 
-## ⚠ Known issues
+## Data contract between stages
 
-**1. Parquet filename mismatch between step 01 and steps 02–05.**
-Step 01 currently writes `cell_measurements.parquet`, while the downstream
-scripts look for `AGGREGATED_FILE = "micromorph_cell_measurements.parquet"`.
-Until this is reconciled, either rename the file after segmentation or set
-`AGGREGATED_FILE` in the downstream script to match.
+Step 01 writes `cell_measurements.parquet`; every downstream script reads that
+same name via its `AGGREGATED_FILE` constant. The stages therefore connect
+without any manual renaming.
 
-**2. `PARQUET_SCHEMA_HANDOFF.md` describes a newer schema than step 01 emits.**
-That document specifies a `cp_measure`-based table with ~296 columns
-(`AreaShape_*`, `Texture_*`, `Zernike_*`, timestamped filenames). The
-`01_cellpose_segmentation.py` in this repo still produces the smaller
-`regionprops_table` schema documented above. Treat the handoff document as the
-*target* schema for a migration that is not yet complete in this file, and this
-README as the description of current behaviour.
+The 8 morphology features steps 02–05 analyse are all produced by step 01:
 
-**3. Data paths are hardcoded.** The `D:\...` paths at the top of each script
+`area_um2`, `perimeter_um`, `length_um`, `width_um`, `roundness`,
+`aspect_ratio`, `solidity`, `eccentricity`
+
+If you change the output filename in step 01, update `AGGREGATED_FILE` in
+`02_morphological_analysis.py`, `02_morphological_analysis_CRISPRi_control_plate.py`,
+`03_morphological_map.py`, `04_od600_morphology_correlation.py` and
+`05_deep_learning_classification.py`. (`02_morphological_analysis_multi_plate.py`
+inherits its config from the single-plate module.)
+
+> `PARQUET_SCHEMA_HANDOFF.md` describes a **proposed** `cp_measure` schema with
+> ~296 columns that this pipeline does not produce. It is a design document for
+> a possible future enhancement, not a description of current output — see the
+> status banner at the top of that file.
+
+---
+
+## ⚠ Known limitation
+
+**Data paths are hardcoded.** The `D:\...` paths at the top of each script
 point at specific acquisition folders and must be edited for any other dataset.
+Only `02_morphological_analysis.py` can take its input path on the command line
+(`--data-folder`).
 
 ---
 

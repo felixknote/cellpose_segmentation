@@ -1,6 +1,34 @@
 # Parquet schema handoff — `01_cellpose_segmentation.py` → downstream
 
-The segmentation script now writes a `cp_measure`-derived feature parquet per `TIFocus` folder. Files that load this parquet (e.g. `02_morphological_analysis.py`, `02_morphological_analysis_multi_plate.py`, `02_morphological_analysis_WT_multi_plate.py`, `03_morphological_map.py`, `04_od600_morphology_correlation.py`, `05_deep_learning_classification.py`) must be updated to use the new column names. This document is the contract.
+> ## ⚠ STATUS: PROPOSED — NOT IMPLEMENTED
+>
+> **This document describes a `cp_measure`-based schema that the pipeline does
+> not currently produce.** It is a design proposal for a future migration, kept
+> for reference. Do not treat it as a description of the current data.
+>
+> As of 2026-08-19:
+>
+> - `01_cellpose_segmentation.py` uses `skimage.measure.regionprops_table`,
+>   **not** `cp_measure`. It emits ~16 columns, not the ~296 described below.
+> - `cp_measure` is **not installed** in any conda environment on this machine.
+> - The output file is `cell_measurements.parquet` — no timestamp prefix.
+> - Column names are lowercase (`area_um2`, `length_um`, `roundness`), **not**
+>   the CellProfiler-style `AreaShape_*` / `Texture_*` / `Zernike_*` names.
+>
+> For the schema that steps 02–05 actually consume, see the *Step 01* section
+> of [README.md](README.md). The 8 morphology features there are already
+> consistent across every stage — the "Migration mapping" table below maps
+> *from* that working schema *to* the proposed one, so it reads backwards
+> relative to the current code.
+>
+> Nothing needs to change for the pipeline to run. Adopting this schema would
+> be a deliberate enhancement: richer texture/Zernike/granularity features at
+> the cost of installing `cp_measure` and updating the feature lists in
+> steps 02–05.
+
+---
+
+Under the proposed design, the segmentation script writes a `cp_measure`-derived feature parquet per `TIFocus` folder. Files that load this parquet (e.g. `02_morphological_analysis.py`, `02_morphological_analysis_multi_plate.py`, `02_morphological_analysis_WT_multi_plate.py`, `03_morphological_map.py`, `04_od600_morphology_correlation.py`, `05_deep_learning_classification.py`) must be updated to use the new column names. This document is the contract.
 
 ## File location & naming
 
