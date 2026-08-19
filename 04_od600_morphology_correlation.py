@@ -37,7 +37,7 @@ warnings.filterwarnings('ignore')
 class Config:
     ROOT_DATA_DIR        = r"D:\2026_03_14_WT_Comparison"
     SEGMENTATION_SUBPATH = r"TIFOCUS\CellposeSAM Segmentation results"
-    AGGREGATED_FILE      = "micromorph_cell_measurements.parquet"
+    AGGREGATED_FILE      = "cell_measurements.parquet"   # written by 01_cellpose_segmentation.py
     OD600_SUBDIR         = "OD600"
 
     MORPHOLOGY_FEATURES = ['roundness', 'area_um2', 'length_um', 'width_um', 'perimeter_um']

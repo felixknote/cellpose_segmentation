@@ -40,7 +40,7 @@ warnings.filterwarnings('ignore', category=FutureWarning, module='pandas')
 class Config:
     # Paths
     DATA_FOLDER    = r"D:\2025_12_19 CRISPRi Reference Plate Imaging\P1\CellposeSAM Segmentation results"
-    AGGREGATED_FILE = "micromorph_cell_measurements.parquet"
+    AGGREGATED_FILE = "cell_measurements.parquet"   # written by 01_cellpose_segmentation.py
 
     # Features for histogram/statistical analyses — now all 8 features
     MORPHOLOGY_FEATURES = [

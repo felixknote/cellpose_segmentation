@@ -16,7 +16,7 @@
 #   ROOT_DATA_DIR/
 #     P1/
 #       <SEGMENTATION_SUBPATH>/
-#         micromorph_cell_measurements.parquet
+#         cell_measurements.parquet
 #     P2/ ... P3/ ... (as many plates as needed)
 #     P_1_plate_map.csv          ← one per plate, named P_<N>_plate_map.csv
 #     P_2_plate_map.csv

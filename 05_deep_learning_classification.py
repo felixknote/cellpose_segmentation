@@ -66,7 +66,7 @@ class Config:
     # ── Data ─────────────────────────────────────────────────────────────────
     ROOT_DATA_DIR        = r"D:\2025_12_19 CRISPRi Reference Plate Imaging"
     SEGMENTATION_SUBPATH = r"CellposeSAM Segmentation results"
-    AGGREGATED_FILE      = "micromorph_cell_measurements.parquet"
+    AGGREGATED_FILE      = "cell_measurements.parquet"   # written by 01_cellpose_segmentation.py
     # Plate map CSVs: P_1_plate_map.csv … P_6_plate_map.csv  in ROOT_DATA_DIR
 
     # Plates sorted alphabetically; 0-indexed

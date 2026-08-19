@@ -52,7 +52,7 @@ except ImportError:
 
 class Config:
     DATA_FOLDER     = r"D:\2025_12_19 CRISPRi Reference Plate Imaging\P1\CellposeSAM Segmentation results"
-    AGGREGATED_FILE = "micromorph_cell_measurements.parquet"
+    AGGREGATED_FILE = "cell_measurements.parquet"   # written by 01_cellpose_segmentation.py
     PLATE_MAP_FILE  = "plate_map.xlsx"
 
     FEATURES = ["area_um2", "length_um", "width_um", "roundness", "solidity"]
