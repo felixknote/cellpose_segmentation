@@ -1,0 +1,49 @@
+# ── Editors / IDE ─────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# ── Jupyter ───────────────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+*-checkpoint.ipynb
+
+# ── Pipeline outputs ──────────────────────────────────────────────────────────
+# Segmentation and analysis results are regenerated from raw microscopy data;
+# they are large and must never be versioned.
+images/
+output_folder/
+Analysis_*/
+CellposeSAM Segmentation results/
+*_masks.tif
+*_masks.tiff
+
+# Measurement tables emitted by 01_cellpose_segmentation.py and downstream steps.
+*.parquet
+*_cell_measurements*.csv
+aggregate_stats.csv
+download_log.csv
+
+# ── Vendored assets ───────────────────────────────────────────────────────────
+# pyvis writes its bundled JS/CSS (vis-network, tom-select) next to the HTML it
+# generates. Third-party code, regenerated on every run.
+lib/
+
+# ── Plotting / report byproducts ──────────────────────────────────────────────
+Rplots.pdf
+*.html
+
+# ── OS cruft ──────────────────────────────────────────────────────────────────
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+
+# -- Agent tooling -------------------------------------------------------------
+.claude/
